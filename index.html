@@ -19,7 +19,6 @@
 
   <!-- ▼ 追加：pdf.js読み込み (CDN) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-
 </head>
 <body>
 <div class="container">
@@ -42,39 +41,25 @@
         </strong>
       </td>
     </table>
-    <table class="first-box">
-      <td>
-        <strong>➀に当てはまる方は、以下の項目への入力をお願いします。</strong>
-      </td>
-    </table>
 
+    <!-- 1. 経歴書アップロード (テキストベースPDF自動入力) -->
     <div class="form-group upload-wrapper">
-      <label for="resume-file" class="upload-label">
-        1. 経歴書などをお持ちの場合アップロードしてください。
+      <label for="pdf-upload" class="upload-label">
+        1. 経歴書などをお持ちの場合アップロードしてください (自動入力)
       </label>
       <div class="upload-area"
-           onclick="document.getElementById('resume-file').click()">
+           onclick="document.getElementById('pdf-upload').click()">
         <p class="upload-text">
-          PDFもしくは、docs形式のデータをアップロードしてください。
+          テキストベースPDFをアップロード
         </p>
       </div>
       <input
         type="file"
-        id="resume-file"
-        accept=".pdf,.doc,.docx"
+        id="pdf-upload"
+        accept="application/pdf"
         style="display: none"
       />
     </div>
-
-    <div class="form-group">
-      <label for="additional-info">
-        2. 追加したい情報がある場合記入してください。
-      </label>
-      <textarea id="additional-info" placeholder="" rows="3"></textarea>
-    </div>
-    <button id="bulk-generate-btn" class="btn btn-primary">
-      一括生成する
-    </button>
 
     <table class="second-box">
       <td>
@@ -185,10 +170,9 @@
       <input type="text" id="input-alt-email" placeholder="" />
     </div>
 
-    <!-- 学歴・職歴 (最大12行) -->
+    <!-- 学歴・職歴 (12行まで) -->
     <div class="section-title">学歴・職歴</div>
     <div id="education-container">
-      <!-- デフォルト1行目 -->
       <div class="row-container">
         <div class="form-inline">
           <select class="edu-year"><option value="">--</option></select>
@@ -210,10 +194,9 @@
       </button>
     </div>
 
-    <!-- 免許・資格 (最大6行) -->
+    <!-- 免許・資格 (6行まで) -->
     <div class="section-title">免許・資格</div>
     <div id="skill-container">
-      <!-- デフォルト1行目 -->
       <div class="row-container">
         <div class="form-inline">
           <select class="license-year"><option value="">--</option></select>
@@ -256,26 +239,6 @@
       <textarea id="input-request" placeholder=""></textarea>
     </div>
 
-    <!-- ▼ 追加: テキストベースPDF用アップロード (簡易自動入力) -->
-    <div class="form-group upload-wrapper">
-      <label for="pdf-upload" class="upload-label">
-        テキストベースPDFをアップロード(自動入力)
-      </label>
-      <div class="upload-area"
-           onclick="document.getElementById('pdf-upload').click()">
-        <p class="upload-text">
-          履歴書などテキストベースPDFをアップロード
-        </p>
-      </div>
-      <input
-        type="file"
-        id="pdf-upload"
-        accept="application/pdf"
-        style="display: none"
-      />
-    </div>
-    <!-- ↑ ここまで追加 -->
-
     <!-- PDF保存ボタン -->
     <div class="pdf-btn-wrapper">
       <button id="pdf-save-btn" class="btn pdf-btn">PDF保存</button>
@@ -286,7 +249,7 @@
   <!-- 右カラム：プレビュー(複数ページ) -->
   <div class="right">
     <div class="resume-pages" id="resume-pages">
-      <!-- JSで1ページ目を生成 -->
+      <!-- JSで1ページ目を生成（消えないよう保持） -->
     </div>
   </div>
 </div><!-- /container -->

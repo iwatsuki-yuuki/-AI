@@ -2,6 +2,110 @@
 const scriptURL =
   "https://script.google.com/macros/s/AKfycbyYmqbjwwkZlxWNfFVZi8ORT0mHw0sh9VlpYBcVsYz_UZSB63OM6LOya0UAZgZgCyhGpw/exec";
 
+/***********************************************************
+ * PDF行単位の精度向上用: 同じ行の要素をまとめる関数
+ ***********************************************************/
+function groupItemsByLine(items) {
+  // y座標でソート (PDFでは上部がy座標大きい場合あり)
+  items.sort((a, b) => {
+    // transform[5] = y座標
+    return b.transform[5] - a.transform[5];
+  });
+
+  const lineThreshold = 5; // 同じ行とみなす誤差(要調整)
+  const lines = [];
+  let currentLine = { text: "", y: null };
+
+  for (const it of items) {
+    const txt = it.str.trim();
+    if (!txt) continue;
+
+    const y = it.transform[5];
+    if (currentLine.y === null) {
+      // 最初の要素
+      currentLine.y = y;
+      currentLine.text = txt;
+    } else {
+      if (Math.abs(currentLine.y - y) < lineThreshold) {
+        // 同じ行
+        currentLine.text += " " + txt;
+      } else {
+        // 新しい行
+        lines.push(currentLine.text.trim());
+        currentLine = { text: txt, y };
+      }
+    }
+  }
+  if (currentLine.text) {
+    lines.push(currentLine.text.trim());
+  }
+
+  return lines;
+}
+
+function linesToFullText(lines) {
+  // 1行ごと改行を挟んで連結
+  return lines.join("\n");
+}
+
+/**********************************************************
+ * テキストベースPDFアップロード
+ **********************************************************/
+document.getElementById("pdf-upload").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let fullText = "";
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      // 行ごとにまとめる
+      const lines = groupItemsByLine(content.items);
+      // 行単位テキストを改行で連結
+      fullText += linesToFullText(lines) + "\n";
+    }
+
+    console.log("【PDF行解析】抽出テキスト:\n", fullText);
+
+    // 以下、正規表現などで抽出 → フォーム入力 → 右カラム自動反映
+    const nameMatch = fullText.match(/氏名\s*(\S+)/);
+    if (nameMatch) {
+      document.getElementById("input-name").value = nameMatch[1];
+    }
+
+    // 住所: 例として「住所」行の次の行を拾うなど…(要調整)
+    const addressMatch = fullText.match(/住所.*\n(.*)/);
+    if (addressMatch) {
+      document.getElementById("input-address").value = addressMatch[1].trim();
+    }
+
+    // 電話番号
+    const phoneMatch = fullText.match(/\d{2,4}-\d{2,4}-\d{3,4}/);
+    if (phoneMatch) {
+      document.getElementById("input-phone").value = phoneMatch[0];
+    }
+
+    // Email
+    const emailMatch = fullText.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/);
+    if (emailMatch) {
+      document.getElementById("input-email").value = emailMatch[0];
+    }
+
+    alert("PDFの解析が完了しました。左側フォームと右プレビューでご確認ください。");
+  } catch (err) {
+    console.error("PDF解析中エラー:", err);
+    alert("PDF解析に失敗しました。テキストベースPDFかどうかをご確認ください。");
+  }
+});
+
+/**********************************************************
+ * （以下）履歴書プレビュー生成・ページ分割・PDF保存
+ **********************************************************/
 // (A) 履歴書HTMLテンプレート
 const resumeTemplate = `
   <div class="resume-preview">
@@ -52,7 +156,7 @@ const resumeTemplate = `
         </table>
       </div>
 
-      <!-- (3) 現住所など -->
+      <!-- (3) 住所など -->
       <div class="block">
         <table class="contact-info-table">
           <tr class="contact-info">
@@ -106,7 +210,7 @@ const resumeTemplate = `
         </table>
       </div>
 
-      <!-- (5) 学歴・職歴 : 12行確保 -->
+      <!-- (5) 学歴・職歴(12行) -->
       <div class="block">
         <table class="education-table">
           <tr class="education-info">
@@ -127,7 +231,7 @@ const resumeTemplate = `
         </table>
       </div>
 
-      <!-- (6) 免許・資格 : 6行確保 -->
+      <!-- (6) 免許・資格(6行) -->
       <div class="block">
         <table class="skill-table">
           <tr class="skill-info">
@@ -199,6 +303,7 @@ const resumeTemplate = `
   </div>
 `;
 
+/** ページラッパ要素 */
 const pagesContainer = document.getElementById("resume-pages");
 
 /** 1) 最初に1ページ目を作る */
@@ -209,10 +314,9 @@ function createNewPageDOM() {
   pagesContainer.appendChild(pageEl);
   return pageEl;
 }
-// 1ページ目
 let currentPage = createNewPageDOM();
 
-/** 2) 本日の令和◯年を表示 */
+/** 2) 日付表示 */
 function setTodayDate() {
   const now = new Date();
   const y = now.getFullYear();
@@ -224,7 +328,7 @@ function setTodayDate() {
 }
 setTodayDate();
 
-/** 3) フォーム入力→プレビュー同期 */
+/** 3) フォーム→プレビュー同期 */
 function bindTextSync(inputSel, previewSel) {
   const inputEl = document.querySelector(inputSel);
   const prevEl = document.querySelector(previewSel);
@@ -238,7 +342,7 @@ function bindTextSync(inputSel, previewSel) {
   sync();
 }
 
-// 名前・住所・TEL・Emailなど
+// 主な項目を同期
 bindTextSync("#input-name", "#preview-name");
 bindTextSync("#input-furigana", "#preview-furigana");
 bindTextSync("#input-postal-code", "#preview-postal-code");
@@ -330,8 +434,7 @@ for (let i = 0; i <= 100; i++) {
 }
 
 /*********************************************************
- * 4) 学歴・職歴
- * 右側 12行, 左側最大12行
+ * 4) 学歴・職歴(最大12行)
  *********************************************************/
 const eduContainer = document.getElementById("education-container");
 let currentEduRows = 1;
@@ -359,6 +462,7 @@ function syncEduRow(leftYearEl, leftMonthEl, leftWorkEl, rowIndex) {
 }
 syncEduRow(defEduYear, defEduMonth, defEduWork, 1);
 
+// 年・月選択
 function populateYearMonth(selectYear, selectMonth) {
   for (let y = 1900; y <= yearNow; y++) {
     const opt = document.createElement("option");
@@ -417,8 +521,7 @@ document.getElementById("remove-education-last").addEventListener("click", () =>
 });
 
 /*********************************************************
- * 5) 免許・資格
- * 右側6行, 左側最大6行
+ * 5) 免許・資格(最大6行)
  *********************************************************/
 const skillContainer = document.getElementById("skill-container");
 let currentSkillRows = 1;
@@ -504,7 +607,7 @@ document.getElementById("remove-skill-last").addEventListener("click", () => {
 });
 
 /**********************************************************
- * 6) ページが溢れたら末尾の「.block」を次ページへ移す
+ * 6) ページ分割（.block単位）
  **********************************************************/
 function splitPagesIfOverflow() {
   let pages = pagesContainer.querySelectorAll(".resume-page");
@@ -542,11 +645,13 @@ function checkOverflow(pageEl, contentEl) {
 }
 
 /**********************************************************
- * 7) PDF保存ボタン → [ページ分割→GAS送信→html2canvas/jsPDF]
+ * 7) PDF保存ボタン (html2canvas + jsPDF)
  **********************************************************/
 document.getElementById("pdf-save-btn").addEventListener("click", async () => {
+  // ページ分割確定
   splitPagesIfOverflow();
 
+  // GAS連携データ例
   const sendData = {
     createdDate: new Date().toLocaleString(),
     name: document.getElementById("input-name").value,
@@ -557,6 +662,7 @@ document.getElementById("pdf-save-btn").addEventListener("click", async () => {
     address: document.getElementById("input-address").value
   };
 
+  // GAS送信
   try {
     const response = await fetch(scriptURL, {
       method: "POST",
@@ -571,6 +677,7 @@ document.getElementById("pdf-save-btn").addEventListener("click", async () => {
     alert("GAS送信中にエラーが発生しました");
   }
 
+  // PDF生成
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "pt", "a4");
   const pageElems = document.querySelectorAll(".resume-page");
@@ -592,82 +699,4 @@ document.getElementById("pdf-save-btn").addEventListener("click", async () => {
   }
 
   pdf.save("履歴書.pdf");
-});
-
-/**********************************************************
- * 8) 「一括生成する」ボタン
- **********************************************************/
-document.getElementById("bulk-generate-btn").addEventListener("click", () => {
-  const file = document.getElementById("resume-file").files[0];
-  const additional = document.getElementById("additional-info").value;
-  alert(
-    "『一括生成する』が押されました。ファイル=" +
-      file +
-      ", 情報=" +
-      additional
-  );
-});
-
-/**********************************************************
- * 9) 【追加】テキストベースPDFアップロード→自動入力
- **********************************************************/
-document.getElementById("pdf-upload").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  try {
-    // 1) PDFをArrayBufferで読み込む
-    const arrayBuffer = await file.arrayBuffer();
-
-    // 2) pdf.jsでドキュメント取得
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    // 3) 全ページ文字をまとめる
-    let fullText = "";
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const content = await page.getTextContent();
-      const strings = content.items.map(item => item.str);
-      // 改行代わりにスペースで連結
-      fullText += strings.join(" ") + " ";
-    }
-
-    console.log("[PDF] 抽出テキスト:", fullText);
-
-    // 4) 正規表現or文字列検索で項目抽出 → フォームに代入
-    //   ※PDFのレイアウト・表記次第で調整が必要
-
-    // (例) 「氏名 ◯◯」の形式を探す
-    const nameMatch = fullText.match(/氏名\s+(\S+)/);
-    if (nameMatch) {
-      document.getElementById("input-name").value = nameMatch[1];
-    }
-
-    // (例) 「住所」～次の改行前の文字を少し広めに取る
-    //      PDF次第でうまくいかないケースもある
-    const addressMatch = fullText.match(/住所\s+([\S]+.{0,40})/);
-    if (addressMatch) {
-      // 住所情報をトリムしてセット
-      document.getElementById("input-address").value = addressMatch[1].trim();
-    }
-
-    // (例) 電話番号っぽい  080-xxxx-xxxx
-    const phoneMatch = fullText.match(/\d{2,4}-\d{2,4}-\d{3,4}/);
-    if (phoneMatch) {
-      document.getElementById("input-phone").value = phoneMatch[0];
-    }
-
-    // (例) Emailっぽい
-    const emailMatch = fullText.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
-    if (emailMatch) {
-      document.getElementById("input-email").value = emailMatch[0];
-    }
-
-    // 必要に応じて他の項目 (ふりがな・郵便番号等) も同様に検索
-
-    alert("PDFテキスト解析が完了しました。自動入力された箇所を確認してください。");
-  } catch (err) {
-    console.error("PDF解析中エラー:", err);
-    alert("PDF解析に失敗しました。テキストベースPDFかどうかをご確認ください。");
-  }
 });
