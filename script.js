@@ -1,9 +1,8 @@
-// ★ GAS連携用URL（ダミーURLを入れています。実際のWebアプリURLに変更してください）
+// ★ GAS連携用URL（ダミーURLを入れています）
 const scriptURL =
   "https://script.google.com/macros/s/AKfycbyYmqbjwwkZlxWNfFVZi8ORT0mHw0sh9VlpYBcVsYz_UZSB63OM6LOya0UAZgZgCyhGpw/exec";
 
-// (A) 履歴書HTMLテンプレート（各セクションを .block で区切っている）
-// 学歴・職歴を合計12行、免許・資格は6行をあらかじめ用意します。
+// (A) 履歴書HTMLテンプレート
 const resumeTemplate = `
   <div class="resume-preview">
     <div class="resume-content" id="resume-content-whole">
@@ -53,7 +52,7 @@ const resumeTemplate = `
         </table>
       </div>
 
-      <!-- (3) 電話番号・Email・現住所 -->
+      <!-- (3) 現住所など -->
       <div class="block">
         <table class="contact-info-table">
           <tr class="contact-info">
@@ -107,7 +106,7 @@ const resumeTemplate = `
         </table>
       </div>
 
-      <!-- (5) 学歴・職歴：合計12行 -->
+      <!-- (5) 学歴・職歴 : 12行確保 -->
       <div class="block">
         <table class="education-table">
           <tr class="education-info">
@@ -115,7 +114,6 @@ const resumeTemplate = `
             <th class="education-container-month">月</th>
             <th class="education-history">学歴・職歴</th>
           </tr>
-          <!-- 12行分あらかじめ用意 -->
           ${[...Array(12)].map((_, i) => {
             const row = i + 1;
             return `
@@ -129,7 +127,7 @@ const resumeTemplate = `
         </table>
       </div>
 
-      <!-- (6) 免許・資格：合計6行 -->
+      <!-- (6) 免許・資格 : 6行確保 -->
       <div class="block">
         <table class="skill-table">
           <tr class="skill-info">
@@ -137,7 +135,6 @@ const resumeTemplate = `
             <th class="skill-container-month">月</th>
             <th class="skill-history">免許・資格</th>
           </tr>
-          <!-- 6行分あらかじめ用意 -->
           ${[...Array(6)].map((_, i) => {
             const row = i + 1;
             return `
@@ -198,7 +195,6 @@ const resumeTemplate = `
           </tr>
         </table>
       </div>
-
     </div>
   </div>
 `;
@@ -213,7 +209,7 @@ function createNewPageDOM() {
   pagesContainer.appendChild(pageEl);
   return pageEl;
 }
-// 1ページ目を生成
+// 1ページ目
 let currentPage = createNewPageDOM();
 
 /** 2) 本日の令和◯年を表示 */
@@ -239,11 +235,10 @@ function bindTextSync(inputSel, previewSel) {
     splitPagesIfOverflow();
   }
   inputEl.addEventListener("input", sync);
-  // 初期反映
   sync();
 }
 
-// 名前・ふりがな、住所・TELなど
+// 名前・住所・TEL・Emailなど
 bindTextSync("#input-name", "#preview-name");
 bindTextSync("#input-furigana", "#preview-furigana");
 bindTextSync("#input-postal-code", "#preview-postal-code");
@@ -260,7 +255,7 @@ bindTextSync("#input-motivation", "#preview-motivation");
 bindTextSync("#input-pr", "#preview-pr");
 bindTextSync("#input-request", "#preview-request");
 
-// 生年月日（年・月・日）
+// 生年月日
 const birthYear = document.getElementById("birth-year");
 const birthMonth = document.getElementById("birth-month");
 const birthDay = document.getElementById("birth-day");
@@ -300,7 +295,7 @@ photoInput.addEventListener("change", () => {
   reader.readAsDataURL(file);
 });
 
-// 生年月日選択肢生成
+// 生年月日プルダウン
 const yearNow = new Date().getFullYear();
 function populateYears(select) {
   for (let y = 1900; y <= yearNow; y++) {
@@ -336,21 +331,17 @@ for (let i = 0; i <= 100; i++) {
 
 /*********************************************************
  * 4) 学歴・職歴
- * 右側は12行固定( id="edu-row-1"～"edu-row-12" )。
- * 左側のフォームは最初1行で最大12行まで追加。
+ * 右側 12行, 左側最大12行
  *********************************************************/
 const eduContainer = document.getElementById("education-container");
-let currentEduRows = 1; // 現在左側に何行あるか(初期1行)
-const maxEduRows = 12;  // 右側は12行まで
+let currentEduRows = 1;
+const maxEduRows = 12;
 
-// (1) デフォルト行(左側1行目) + 右側 row-1 を同期
 const defEduYear = eduContainer.querySelector(".edu-year");
 const defEduMonth = eduContainer.querySelector(".edu-month");
 const defEduWork = eduContainer.querySelector(".edu-work");
 
-// 同期関数
 function syncEduRow(leftYearEl, leftMonthEl, leftWorkEl, rowIndex) {
-  // 右側
   const previewYear = document.getElementById(`edu-preview-year-${rowIndex}`);
   const previewMonth = document.getElementById(`edu-preview-month-${rowIndex}`);
   const previewWork = document.getElementById(`edu-preview-work-${rowIndex}`);
@@ -364,15 +355,10 @@ function syncEduRow(leftYearEl, leftMonthEl, leftWorkEl, rowIndex) {
   leftYearEl.addEventListener("input", doSync);
   leftMonthEl.addEventListener("input", doSync);
   leftWorkEl.addEventListener("input", doSync);
-
-  // 初期反映
   doSync();
 }
-
-// 行1を rowIndex=1 で同期
 syncEduRow(defEduYear, defEduMonth, defEduWork, 1);
 
-// 年月選択肢
 function populateYearMonth(selectYear, selectMonth) {
   for (let y = 1900; y <= yearNow; y++) {
     const opt = document.createElement("option");
@@ -397,83 +383,69 @@ document.getElementById("add-education-row").addEventListener("click", () => {
   currentEduRows++;
   const rowIndex = currentEduRows;
 
-  // 左側に新たな行DOM
   const row = document.createElement("div");
   row.className = "row-container";
   row.innerHTML = `
     <div class="form-inline">
       <select class="edu-year"><option value="">--</option></select>
       <select class="edu-month"><option value="">--</option></select>
-      <!-- 2行目以降はプレースホルダーを空にする -->
       <input type="text" class="edu-work" placeholder="" />
     </div>
   `;
   eduContainer.appendChild(row);
 
-  // populate
   const newYear = row.querySelector(".edu-year");
   const newMonth = row.querySelector(".edu-month");
   const newWork = row.querySelector(".edu-work");
   populateYearMonth(newYear, newMonth);
 
-  // 同期
   syncEduRow(newYear, newMonth, newWork, rowIndex);
 });
 
-document
-  .getElementById("remove-education-last")
-  .addEventListener("click", () => {
-    if (currentEduRows > 1) {
-      // 左側の最後のrow-containerを削除
-      const rows = eduContainer.querySelectorAll(".row-container");
-      eduContainer.removeChild(rows[rows.length - 1]);
+document.getElementById("remove-education-last").addEventListener("click", () => {
+  if (currentEduRows > 1) {
+    const rows = eduContainer.querySelectorAll(".row-container");
+    eduContainer.removeChild(rows[rows.length - 1]);
 
-      // 右側の該当行を空に
-      document.getElementById(`edu-preview-year-${currentEduRows}`).textContent = "";
-      document.getElementById(`edu-preview-month-${currentEduRows}`).textContent = "";
-      document.getElementById(`edu-preview-work-${currentEduRows}`).textContent = "";
+    document.getElementById(`edu-preview-year-${currentEduRows}`).textContent = "";
+    document.getElementById(`edu-preview-month-${currentEduRows}`).textContent = "";
+    document.getElementById(`edu-preview-work-${currentEduRows}`).textContent = "";
 
-      currentEduRows--;
-      splitPagesIfOverflow();
-    }
-  });
+    currentEduRows--;
+    splitPagesIfOverflow();
+  }
+});
 
 /*********************************************************
  * 5) 免許・資格
- * 右側は6行固定( id="skill-row-1"～"skill-row-6" )。
- * 左側は最初1行で最大6行まで。
+ * 右側6行, 左側最大6行
  *********************************************************/
 const skillContainer = document.getElementById("skill-container");
-let currentSkillRows = 1; // 左側の行数(初期1)
+let currentSkillRows = 1;
 const maxSkillRows = 6;
 
-// デフォルト1行目
 const defLicenseYear = skillContainer.querySelector(".license-year");
 const defLicenseMonth = skillContainer.querySelector(".license-month");
 const defSkillHistory = skillContainer.querySelector(".skill-history");
 
-function syncSkillRow(yearEl, monthEl, histEl, rowIndex) {
+function syncSkillRow(yEl, mEl, hEl, rowIndex) {
   const previewYear = document.getElementById(`skill-preview-year-${rowIndex}`);
   const previewMonth = document.getElementById(`skill-preview-month-${rowIndex}`);
   const previewHistory = document.getElementById(`skill-preview-history-${rowIndex}`);
 
   function doSync() {
-    previewYear.textContent = yearEl.value;
-    previewMonth.textContent = monthEl.value;
-    previewHistory.textContent = histEl.value;
+    previewYear.textContent = yEl.value;
+    previewMonth.textContent = mEl.value;
+    previewHistory.textContent = hEl.value;
     splitPagesIfOverflow();
   }
-  yearEl.addEventListener("input", doSync);
-  monthEl.addEventListener("input", doSync);
-  histEl.addEventListener("input", doSync);
-
+  yEl.addEventListener("input", doSync);
+  mEl.addEventListener("input", doSync);
+  hEl.addEventListener("input", doSync);
   doSync();
 }
-
-// 1行目を rowIndex=1
 syncSkillRow(defLicenseYear, defLicenseMonth, defSkillHistory, 1);
 
-// populate
 function populateYearMonthSkill(selectYear, selectMonth) {
   for (let y = 1900; y <= yearNow; y++) {
     const opt = document.createElement("option");
@@ -498,14 +470,12 @@ document.getElementById("add-skill-row").addEventListener("click", () => {
   currentSkillRows++;
   const rowIndex = currentSkillRows;
 
-  // 左側新行
   const row = document.createElement("div");
   row.className = "row-container";
   row.innerHTML = `
     <div class="form-inline">
       <select class="license-year"><option value="">--</option></select>
       <select class="license-month"><option value="">--</option></select>
-      <!-- 2行目以降はプレースホルダー空 -->
       <input type="text" class="skill-history" placeholder="" style="text-align: left;" />
     </div>
   `;
@@ -516,17 +486,14 @@ document.getElementById("add-skill-row").addEventListener("click", () => {
   const histEl = row.querySelector(".skill-history");
   populateYearMonthSkill(yearEl, monthEl);
 
-  // 同期
   syncSkillRow(yearEl, monthEl, histEl, rowIndex);
 });
 
 document.getElementById("remove-skill-last").addEventListener("click", () => {
   if (currentSkillRows > 1) {
-    // 左側を削除
     const rows = skillContainer.querySelectorAll(".row-container");
     skillContainer.removeChild(rows[rows.length - 1]);
 
-    // 右側を空に
     document.getElementById(`skill-preview-year-${currentSkillRows}`).textContent = "";
     document.getElementById(`skill-preview-month-${currentSkillRows}`).textContent = "";
     document.getElementById(`skill-preview-history-${currentSkillRows}`).textContent = "";
@@ -546,7 +513,6 @@ function splitPagesIfOverflow() {
     const content = page.querySelector(".resume-content");
     if (!content) continue;
 
-    // もしオーバーフローしていれば、末尾の .block を次ページへ
     while (checkOverflow(page, content)) {
       let nextPage = pages[i + 1];
       if (!nextPage) {
@@ -579,10 +545,8 @@ function checkOverflow(pageEl, contentEl) {
  * 7) PDF保存ボタン → [ページ分割→GAS送信→html2canvas/jsPDF]
  **********************************************************/
 document.getElementById("pdf-save-btn").addEventListener("click", async () => {
-  // 1) ページ分割確定
   splitPagesIfOverflow();
 
-  // 2) 送信データ例
   const sendData = {
     createdDate: new Date().toLocaleString(),
     name: document.getElementById("input-name").value,
@@ -591,10 +555,8 @@ document.getElementById("pdf-save-btn").addEventListener("click", async () => {
     gender: document.getElementById("gender").value,
     age: document.getElementById("age").value,
     address: document.getElementById("input-address").value
-    // 必要なら追加
   };
 
-  // 3) GASに送信
   try {
     const response = await fetch(scriptURL, {
       method: "POST",
@@ -609,13 +571,13 @@ document.getElementById("pdf-save-btn").addEventListener("click", async () => {
     alert("GAS送信中にエラーが発生しました");
   }
 
-  // 4) PDF生成
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "pt", "a4");
   const pageElems = document.querySelectorAll(".resume-page");
 
   for (let i = 0; i < pageElems.length; i++) {
     if (i > 0) pdf.addPage();
+
     const canvas = await html2canvas(pageElems[i], { scale: 2 });
     const imgData = canvas.toDataURL("image/jpeg", 1.0);
 
@@ -644,4 +606,68 @@ document.getElementById("bulk-generate-btn").addEventListener("click", () => {
       ", 情報=" +
       additional
   );
+});
+
+/**********************************************************
+ * 9) 【追加】テキストベースPDFアップロード→自動入力
+ **********************************************************/
+document.getElementById("pdf-upload").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    // 1) PDFをArrayBufferで読み込む
+    const arrayBuffer = await file.arrayBuffer();
+
+    // 2) pdf.jsでドキュメント取得
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    // 3) 全ページ文字をまとめる
+    let fullText = "";
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      const strings = content.items.map(item => item.str);
+      // 改行代わりにスペースで連結
+      fullText += strings.join(" ") + " ";
+    }
+
+    console.log("[PDF] 抽出テキスト:", fullText);
+
+    // 4) 正規表現or文字列検索で項目抽出 → フォームに代入
+    //   ※PDFのレイアウト・表記次第で調整が必要
+
+    // (例) 「氏名 ◯◯」の形式を探す
+    const nameMatch = fullText.match(/氏名\s+(\S+)/);
+    if (nameMatch) {
+      document.getElementById("input-name").value = nameMatch[1];
+    }
+
+    // (例) 「住所」～次の改行前の文字を少し広めに取る
+    //      PDF次第でうまくいかないケースもある
+    const addressMatch = fullText.match(/住所\s+([\S]+.{0,40})/);
+    if (addressMatch) {
+      // 住所情報をトリムしてセット
+      document.getElementById("input-address").value = addressMatch[1].trim();
+    }
+
+    // (例) 電話番号っぽい  080-xxxx-xxxx
+    const phoneMatch = fullText.match(/\d{2,4}-\d{2,4}-\d{3,4}/);
+    if (phoneMatch) {
+      document.getElementById("input-phone").value = phoneMatch[0];
+    }
+
+    // (例) Emailっぽい
+    const emailMatch = fullText.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+    if (emailMatch) {
+      document.getElementById("input-email").value = emailMatch[0];
+    }
+
+    // 必要に応じて他の項目 (ふりがな・郵便番号等) も同様に検索
+
+    alert("PDFテキスト解析が完了しました。自動入力された箇所を確認してください。");
+  } catch (err) {
+    console.error("PDF解析中エラー:", err);
+    alert("PDF解析に失敗しました。テキストベースPDFかどうかをご確認ください。");
+  }
 });
